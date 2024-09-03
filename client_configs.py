@@ -8,12 +8,12 @@ from typing import List, Optional
 from IPython import embed
 import time
 import multiprocessing
-import math
 from typing import List, Optional
 
 SERVER_IP = "[SECRET IP]"
 MODEL_NAME_8B = "8bins"
 MODEL_NAME_70B = "70bins"
+EMBEDDING_7B = "7embed"
 INF = 100
 
 Server = namedtuple("Server", ["ip", "port", "model_size", "model_path", "gpus"])
@@ -50,14 +50,7 @@ BENCHMAK_MESSAGE = [
 ]
 
 
-Servers = [
-    Server(
-        ip=SERVER_IP,
-        port=8048,
-        model_size="8",
-        model_path=MODEL_NAME_8B,
-        gpus=[0],
-    ),
+Completion_Servers = [
     Server(
         ip=SERVER_IP,
         port=8056,
@@ -115,38 +108,54 @@ Servers = [
     #     model_path=MODEL_NAME_70B,
     #     gpus=[0, 1, 2, 3],
     # ),
-    #     Server(
-    #     ip=SERVER_IP,
-    #     port=8470,
-    #     model_size="70",
-    #     model_path=MODEL_NAME_70B,
-    #     gpus=[4, 5, 6, 7],
-    # ),
+]
+
+Embedding_Servers = [
+    Server(
+        ip=SERVER_IP,
+        port=7777,
+        model_size="7",
+        model_path=EMBEDDING_7B,
+        gpus=[0],
+    ),
 ]
 
 
-def get_fastest_server(SERVERS=Servers, initial_latency=10, model_size="8"):
+def get_fastest_server(
+    initial_latency=10, model_size="8", test_embedding_servers: bool = False
+):
+
+    SERVERS = Embedding_Servers if test_embedding_servers else Completion_Servers
     min_latency = initial_latency
     fastest_server = None
 
     def test_server(server: Server):
-        def get_completion(
+
+        def get_completion_or_embedding(
             client,
             message: List,
             temperature: float = 0.0,
             max_tokens: int = 256,
             model_name: Optional[str] = None,
         ) -> str:
+
             def target(queue):
                 try:
-                    completion = client.chat.completions.create(
-                        model=model_name,
-                        messages=message,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        stop=["<|eot_id|>"],
-                    )
-                    queue.put(completion)
+                    if not test_embedding_servers:
+                        completion = client.chat.completions.create(
+                            model=model_name,
+                            messages=message,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
+                            stop=["<|eot_id|>"],
+                        )
+                        queue.put(completion)
+                    else:
+                        embedding = client.embeddings.create(
+                            input=message[0]["content"], model=model_name
+                        )
+                        queue.put(embedding)
+
                 except Exception as e:
                     queue.put(e)
 
@@ -170,22 +179,30 @@ def get_fastest_server(SERVERS=Servers, initial_latency=10, model_size="8"):
                     raise result
                 latency = time.time() - start_time
                 print(f"Connection Time: {latency:.3f} s")
-                return str(result.choices[0].message.content), latency
+                if not test_embedding_servers:
+                    return str(result.choices[0].message.content), latency
+                else:
+                    return (list(result.data[0].embedding), latency)
 
         client = openai.OpenAI(
-            base_url=f"http://{server.ip}:{server.port}/v1",
-            api_key="EMPTY",
+            base_url=(f"http://{server.ip}:{server.port}/v1"),
+            api_key=("sk-1dwqsdv4r3wef3rvefg34ef1dwRv"),
         )
 
         try:
-            response, latency = get_completion(
+            response, latency = get_completion_or_embedding(
                 client,
                 BENCHMAK_MESSAGE,
                 0.0,
                 256,
                 server.model_path,
             )
-            if response:
+            print(
+                f"Get response: {response}"
+                if not test_embedding_servers
+                else f"Get embedding: {response[:10]}"
+            )
+            if response is not None and len(response) > 0:
                 print(
                     f"""
 ============================================================
@@ -210,6 +227,11 @@ Latency: {latency:.3f} s
 
     for server in SERVERS:
         if server.model_size == model_size:
+            print(
+                f"Testing Completion"
+                if not test_embedding_servers
+                else "Testing Embedding"
+            )
             status, latency = test_server(server)
             if status and (latency < min_latency):
                 min_latency = latency
@@ -225,22 +247,32 @@ Latency: {latency:.3f} s
         return None, INF
 
 
-def get_all_latency(SERVERS=Servers):
+def get_all_latency(test_embedding_servers: bool = False):
+    SERVERS = Embedding_Servers if test_embedding_servers else Completion_Servers
+
     def test_server(server: Server):
         client = openai.OpenAI(
-            base_url=f"http://{server.ip}:{server.port}/v1",
-            api_key="EMPTY",
+            base_url=(f"http://{server.ip}:{server.port}/v1"),
+            api_key=("sk-1dwqsdv4r3wef3rvefg34ef1dwRv"),
         )
 
         try:
             start_time = time.time()
-            completion = client.chat.completions.create(
-                model=server.model_path,
-                messages=BENCHMAK_MESSAGE,
-                max_tokens=256,
-                temperature=0.9,
-            )
-            response = str(completion.choices[0].message.content)
+            if not test_embedding_servers:
+                completion = client.chat.completions.create(
+                    model=server.model_path,
+                    messages=BENCHMAK_MESSAGE,
+                    max_tokens=256,
+                    temperature=0.9,
+                    stop=["<|eot_id|>", "\nObservation", "Observation"],
+                )
+                response = str(completion.choices[0].message.content)
+            else:
+                embedding = client.embeddings.create(
+                    input=BENCHMAK_MESSAGE[0]["content"], model=server.model_path
+                )
+                client.embeddings.create(input="how are you", model=server.model_path)
+                response = str(embedding.data[0].embedding[:10])
             duration = time.time() - start_time
             print(
                 f"""
@@ -255,7 +287,11 @@ GPUs: {server.gpus}
             """
             )
             print(f"Connection Time: {duration:.3f}s for {server.ip}:{server.port}")
-            print(f"Get response: {response}")
+            print(
+                f"Get response: {response}"
+                if not test_embedding_servers
+                else f"GOT EMBEDDING: {response}"
+            )
             return True
         except Exception as e:
             print(
@@ -279,12 +315,19 @@ GPUs: {server.gpus}
         test_server(server)
 
 
-def get_running_server_sizes(SERVERS=Initial_Servers):
+def get_running_server_sizes(SERVERS=Completion_Servers + Embedding_Servers):
     server_sizes = [server.model_size for server in SERVERS]
     return server_sizes
 
 
 if __name__ == "__main__":
-    server, min_latency = get_fastest_server(initial_latency=3)
+    server, min_latency = get_fastest_server(
+        initial_latency=10, model_size="8", test_embedding_servers=False
+    )
     print(server)
-    get_all_latency()
+    server, min_latency = get_fastest_server(
+        initial_latency=10, model_size="7", test_embedding_servers=True
+    )
+    print(server)
+    get_all_latency(test_embedding_servers=True)
+    get_all_latency(test_embedding_servers=False)

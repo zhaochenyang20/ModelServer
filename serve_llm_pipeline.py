@@ -7,10 +7,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
 import socket
-from client_configs import Server, Servers
+from client_configs import Server, Completion_Servers, Embedding_Servers
+from IPython import embed
 
 #! 如果 GPU ulitization 较低的话，开不了这么长的 context length
-MAX_CONTEXT_LENGTH = 65536
+MAX_CONTEXT_LENGTH = 65536 * 2
 CHUNKED_PREFILL_SIZE = int(MAX_CONTEXT_LENGTH / 8)
 
 
@@ -69,11 +70,13 @@ def get_comond_infos(server: Server):
     command = f"""
     CUDA_VISIBLE_DEVICES={group_gpu_string} python -m sglang.launch_server --enable-p2p-check --model-path {server.model_path} \
     --dtype auto --tensor-parallel-size {tensor_parallel_size} \
-    --context-length {MAX_CONTEXT_LENGTH} --chunked-prefill-size {CHUNKED_PREFILL_SIZE} \
-    --port {server.port} --host 0.0.0.0 """
+    --context-length {MAX_CONTEXT_LENGTH if server.model_size != "7" else 32768} --chunked-prefill-size {CHUNKED_PREFILL_SIZE if server.model_size != "7" else int(32768 / 8)} \
+    --port {server.port} --host 0.0.0.0 --api-key sk-1dwqsdv4r3wef3rvefg34ef1dwRv """
     #! host 0.0.0.0 可以用于广播
-    if server.model_size == "8":
-        command += " --enable-torch-compile "
+    # if server.model_size == "8" or server.model_size == "7":
+    #     command += " --enable-torch-compile "
+    if server.model_size == "7":
+        command += " --is-embedding "
     #! 8b 模型需要开启 torch compile，70b 还没优化
     return (group_gpu_string, command, server.port, server.model_size)
 
@@ -81,6 +84,7 @@ def get_comond_infos(server: Server):
 def main():
     eno1_ip_address = get_eno1_inet_address()
     ServerID = int(eno1_ip_address[-1])
+    assert ServerID in [3, 4], "Model should be served on server 3 or 4."
     assert str(ServerID) in socket.gethostname(), "ServerID should be in the hostname."
 
     print(
@@ -93,7 +97,9 @@ IP: {get_eno1_inet_address()}
     )
 
     command_infos = [
-        get_comond_infos(server) for server in Servers if (server.ip == eno1_ip_address)
+        get_comond_infos(server)
+        for server in (Completion_Servers + Embedding_Servers)
+        if (server.ip == eno1_ip_address)
     ]
 
     def run_with_gpu_check(command_info):
@@ -103,18 +109,18 @@ IP: {get_eno1_inet_address()}
             print(f"Waiting for GPU(s) {group_id} to be free...")
             time.sleep(10)
 
+        print(
+            f"Serving {model_size}b model on server {ServerID} port {port} with GPUs {group_id}"
+        )
         free_gpu_ration = min(get_free_memory_ratio(group_id))
         gpu_ultization = None
         if free_gpu_ration >= 0.95:
-            gpu_ultization = 0.90
+            gpu_ultization = 0.80
         elif free_gpu_ration >= 0.85:
             gpu_ultization = 0.70
         else:
             raise ValueError("GPU memory is not enough.")
-        print(
-            f"Serving {model_size}b model on server {ServerID} port {port} with GPUs {group_id}"
-        )
-        command = command + f" --mem-fraction-static {gpu_ultization}\n"
+        command = command + f" --mem-fraction-static {gpu_ultization}  "
         print(command)
         subprocess.run(command, shell=True)
 
