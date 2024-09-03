@@ -33,7 +33,6 @@ class EnvironmentHistory:
         memory: List[str],
         history: List[Dict[str, str]] = [],
     ) -> None:
-
         def _get_base_query(base_query: str, start_info: str, memory: List[str]) -> str:
             query = base_query
 

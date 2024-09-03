@@ -10,7 +10,7 @@ import time
 import multiprocessing
 from typing import List, Optional
 
-SERVER_IP = "[SECRET IP]"
+SERVER_IP = "[SECRET IP, REPLACE WITH YOURS]"
 MODEL_NAME_8B = "8bins"
 MODEL_NAME_70B = "70bins"
 EMBEDDING_7B = "7embed"
@@ -124,13 +124,11 @@ Embedding_Servers = [
 def get_fastest_server(
     initial_latency=10, model_size="8", test_embedding_servers: bool = False
 ):
-
     SERVERS = Embedding_Servers if test_embedding_servers else Completion_Servers
     min_latency = initial_latency
     fastest_server = None
 
     def test_server(server: Server):
-
         def get_completion_or_embedding(
             client,
             message: List,
@@ -138,7 +136,6 @@ def get_fastest_server(
             max_tokens: int = 256,
             model_name: Optional[str] = None,
         ) -> str:
-
             def target(queue):
                 try:
                     if not test_embedding_servers:
