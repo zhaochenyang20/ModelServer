@@ -8,29 +8,48 @@ The ModelServer framework implements efficient, flexible, and highly fault-toler
 
 ## Get Started
 
-Step 1: Install SGLang:
-Below are the dependencies for the SGLang framework:
+### Install SGLang
+
+Below are the dependencies for the SGLang framework in my framework currently. Will update later.
+
 ```bash
 pip install sglang==0.2.15
 pip install flashinfer==0.1.6 -i https://flashinfer.ai/whl/cu121/torch2.3/
-pip install vllm==0.5.5 # lower version will lead to errors about multimodal-config
+
+# lower version of vllm will lead to errors about multimodal-config
+pip install vllm==0.5.5
+
 pip install triton==2.3.1
+
+# change the cuda version according to your local device
 pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
 ```
 It is recommended to follow the above specified versions to avoid potential errors.
 
-Step 2: Modify `client_config.py`:
-Modify the IP address of the server in `client_config.py`:
+### Modify `client_config.py`
+
+Modify the IP address of the server and the model path in `client_config.py`:
+
 ```python
 SERVER_IP = "[SECRET IP, REPLACE WITH YOURS]"
+MODEL_NAME_8B = "8bins"
+MODEL_NAME_70B = "70bins"
+EMBEDDING_7B = "7embed"
 ```
 
-Step 3: Run the server
+### Run the Server Engine
+
 ```bash
 python serve_llm_pipeline.py
 ```
 
-Step 4: Test the server
+### Test the Server Latency
+
+```bash
+python client_config.py
+```
+
+### Test the ModelServer
 ```bash
 python model_server.py
 ```
@@ -117,14 +136,28 @@ Manages the creation and interaction of different model servers (including compl
 
 ## Trouble Shooting
 
-1. If you encounter the error `eno1` not found, you can directly remove `get_eno1_inet_address` in `serve_llm_pipeline.py` and set the IP address manually.
+1. If you encounter the error `eno1` not found, you can directly remove `get_eno1_inet_address` in `serve_llm_pipeline.py` and set the IP address manually. (IP address is used to differentiate clusters if you want to run engines on multiple clusters with different IPs.)
 
-2. If you encounter the error `RuntimeError: Tried to instantiate class '_core_C.ScalarType', but it does not exist! Ensure that it is registered via torch::class_<ScalarType, Base, torch::detail::intrusive_ptr_target>::declare("torch._C.ScalarType");`, you can solve it by installing the correct version of torch:
+2. If you encounter the error:
+
+```
+RuntimeError: Tried to instantiate class '_core_C.ScalarType', but it does not exist! Ensure that it is registered via torch::class_<ScalarType, Base, torch::detail::intrusive_ptr_target>::declare("torch._C.ScalarType");
+```
+
+You can solve it by installing the correct version of torch:
+
 ```bash
 pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121 
 ```
 
-3. If you encounter the error `ImportError: /usr/lib/x86_64-linux-gnu/libc.so.6: version 'GLIBC_2.34' not found (required by /xxx/.triton/cache/41ce1f58e0a8aa9865e66b90d58b3307bb64c5a006830e49543444faf56202fc/cuda_utils.so)`, you can solve it by deleting the cache:
+3. If you encounter the error:
+
+```
+ImportError: /usr/lib/x86_64-linux-gnu/libc.so.6: version 'GLIBC_2.34' not found (required by /xxx/.triton/cache/41ce1f58e0a8aa9865e66b90d58b3307bb64c5a006830e49543444faf56202fc/cuda_utils.so)
+```
+
+You can solve it by deleting the cache:
+
 ```bash
 rm -rf /xxx/.triton/cache/*
 ```

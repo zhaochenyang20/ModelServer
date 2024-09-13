@@ -4,6 +4,54 @@
 
 ModelServer 框架实现了高效、灵活且具有强大容错能力的模型服务管理。它能够适应不同规模的模型和多样的任务需求，为大规模语言模型的部署和应用提供了可靠的基础设施。
 
+## 快速使用
+
+### 安装 SGLang
+
+参考我当前的配置，安装 SGLang 和依赖项。
+
+```bash
+pip install sglang==0.2.15
+pip install flashinfer==0.1.6 -i https://flashinfer.ai/whl/cu121/torch2.3/
+
+# 较低版本的vllm可能导致关于multimodal-config的错误
+pip install vllm==0.5.5
+
+pip install triton==2.3.1
+
+# 根据您的本地设备更改cuda版本
+pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+```
+
+### 修改 `client_config.py`
+
+在 `client_config.py` 中配置你本地的服务器的 IP 地址和模型路径等等：
+
+```python
+SERVER_IP = "[SECRET IP, REPLACE WITH YOURS]"
+MODEL_NAME_8B = "8bins"
+MODEL_NAME_70B = "70bins"
+EMBEDDING_7B = "7embed"
+```
+
+### 启动 Model Engine
+
+```bash
+python serve_llm_pipeline.py
+```
+
+### 测试服务器延迟
+
+```python
+python client_config.py
+```
+
+### 测试 ModelServer
+
+```bash
+python model_server.py
+```
+
 ## 代码结构
 
 ### `client_configs.py`
@@ -83,3 +131,29 @@ ModelServer 框架实现了高效、灵活且具有强大容错能力的模型�
 4. 在高负载情况下，考虑增加更多的服务器或优化现有服务器配置。
 5. 利用嵌入模型功能进行文本分析和相似度计算任务。
 
+## Trouble Shooting
+
+1. 如果遇到`eno1`未找到的错误，可以直接在`serve_llm_pipeline.py`中移除`get_eno1_inet_address`并手动设置IP地址。（为了在具有不同 IP 的多个集群上运行 Model Engine 时，我采用 IP 地址来区分集群。如果不需要在多个集群上运行，就不用区分。）
+2. 如果遇到以下错误：
+
+```bash
+RuntimeError: Tried to instantiate class '_core_C.ScalarType', but it does not exist! Ensure that it is registered via torch::class_<ScalarType, Base, torch::detail::intrusive_ptr_target>::declare("torch._C.ScalarType");
+```
+
+可以通过安装正确版本的torch来解决：
+
+```bash
+pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
+```
+
+1. 如果遇到以下错误：
+
+```bash
+ImportError: /usr/lib/x86_64-linux-gnu/libc.so.6: version 'GLIBC_2.34' not found (required by /xxx/.triton/cache/41ce1f58e0a8aa9865e66b90d58b3307bb64c5a006830e49543444faf56202fc/cuda_utils.so)
+```
+
+可以通过删除缓存来解决：
+
+```bash
+rm -rf /xxx/.triton/cache/*
+```
