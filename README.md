@@ -6,6 +6,35 @@ You can also refer to the [Chinese Readme](./README_CN.md).
 
 The ModelServer framework implements efficient, flexible, and highly fault-tolerant model service management. It can adapt to models of different scales and diverse task requirements, providing a reliable infrastructure for the deployment and application of large-scale language models.
 
+## Get Started
+
+Step 1: Install SGLang:
+Below are the dependencies for the SGLang framework:
+```bash
+pip install sglang==0.2.15
+pip install flashinfer==0.1.6 -i https://flashinfer.ai/whl/cu121/torch2.3/
+pip install vllm==0.5.5 # lower version will lead to errors about multimodal-config
+pip install triton==2.3.1
+pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+```
+It is recommended to follow the above specified versions to avoid potential errors.
+
+Step 2: Modify `client_config.py`:
+Modify the IP address of the server in `client_config.py`:
+```python
+SERVER_IP = "[SECRET IP, REPLACE WITH YOURS]"
+```
+
+Step 3: Run the server
+```bash
+python serve_llm_pipeline.py
+```
+
+Step 4: Test the server
+```bash
+python model_server.py
+```
+
 ## Code Structure
 
 ### `client_configs.py`
@@ -84,3 +113,18 @@ Manages the creation and interaction of different model servers (including compl
 3. Regularly check and update `BENCHMAK_MESSAGE` to ensure it effectively tests server performance.
 4. Consider adding more servers or optimizing existing server configurations under high load conditions.
 5. Utilize embedding model functionality for text analysis and similarity calculation tasks.
+
+
+## Trouble Shooting
+
+1. If you encounter the error `eno1` not found, you can directly remove `get_eno1_inet_address` in `serve_llm_pipeline.py` and set the IP address manually.
+
+2. If you encounter the error `RuntimeError: Tried to instantiate class '_core_C.ScalarType', but it does not exist! Ensure that it is registered via torch::class_<ScalarType, Base, torch::detail::intrusive_ptr_target>::declare("torch._C.ScalarType");`, you can solve it by installing the correct version of torch:
+```bash
+pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121 
+```
+
+3. If you encounter the error `ImportError: /usr/lib/x86_64-linux-gnu/libc.so.6: version 'GLIBC_2.34' not found (required by /xxx/.triton/cache/41ce1f58e0a8aa9865e66b90d58b3307bb64c5a006830e49543444faf56202fc/cuda_utils.so)`, you can solve it by deleting the cache:
+```bash
+rm -rf /xxx/.triton/cache/*
+```
