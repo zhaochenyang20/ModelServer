@@ -136,7 +136,7 @@ Manages the creation and interaction of different model servers (including compl
 
 ## Trouble Shooting
 
-1. If you encounter the error `eno1` not found, you can directly remove `get_eno1_inet_address` in `serve_llm_pipeline.py` and set the IP address manually. (IP address is used to differentiate clusters if you want to run engines on multiple clusters with different IPs.)
+1. If you encounter the error `eno1` not found, you can directly remove `get_eno1_inet_address` in `serve_llm_pipeline.py` and set the IP address manually. IP address is used to differentiate clusters if you want to run engines on multiple clusters with different IPs. If you only have one cluster/node, you can manually set its IP address.
 
 2. If you encounter the error:
 

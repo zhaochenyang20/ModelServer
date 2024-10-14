@@ -75,8 +75,8 @@ def get_comond_infos(server: Server):
     #! host 0.0.0.0 可以用于广播
     # if server.model_size == "8" or server.model_size == "7":
     #     command += " --enable-torch-compile "
-    if server.model_size == "7":
-        command += " --is-embedding "
+    # if server.model_size == "7":
+    #     command += " --is-embedding "
     #! 8b 模型需要开启 torch compile，70b 还没优化
     return (group_gpu_string, command, server.port, server.model_size)
 
