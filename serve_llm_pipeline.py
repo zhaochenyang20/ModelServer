@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
 import socket
 from client_configs import Server, Completion_Servers, Embedding_Servers
-from IPython import embed
+
 
 #! 如果 GPU ulitization 较低的话，开不了这么长的 context length
 MAX_CONTEXT_LENGTH = 65536 * 2
@@ -75,8 +75,8 @@ def get_comond_infos(server: Server):
     #! host 0.0.0.0 可以用于广播
     # if server.model_size == "8" or server.model_size == "7":
     #     command += " --enable-torch-compile "
-    # if server.model_size == "7":
-    #     command += " --is-embedding "
+    if server.model_size == "7" or server.model_size == "2":
+        command += " --is-embedding "
     #! 8b 模型需要开启 torch compile，70b 还没优化
     return (group_gpu_string, command, server.port, server.model_size)
 

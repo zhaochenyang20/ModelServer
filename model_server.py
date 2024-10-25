@@ -217,6 +217,11 @@ if __name__ == "__main__":
         complition = server.get_completion_or_embedding("8", message)
         print(complition)
 
+    for i in range(10):
+        print(f"Completion {i}:")
+        complition = server.get_completion_or_embedding("70", message)
+        print(complition)
+
     embedding = None
     for i in range(10):
         print(f"Embedding {i}:")

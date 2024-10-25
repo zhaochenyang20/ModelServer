@@ -10,10 +10,11 @@ import time
 import multiprocessing
 from typing import List, Optional
 
-SERVER_IP = "[SECRET IP, REPLACE WITH YOURS]"
-MODEL_NAME_8B = "8bins"
-MODEL_NAME_70B = "70bins"
-EMBEDDING_7B = "7embed"
+SERVER_IP = "131.179.88.84"
+MODEL_NAME_8B = "meta-llama/Llama-3.1-8B-Instruct"
+MODEL_NAME_70B = "meta-llama/Llama-3.1-70B-Instruct"
+EMBEDDING_7B = "Alibaba-NLP/gte-Qwen2-7B-instruct"
+EMBEDDING_2B = "Alibaba-NLP/gte-Qwen2-2B-instruct"
 INF = 100
 
 Server = namedtuple("Server", ["ip", "port", "model_size", "model_path", "gpus"])
@@ -53,31 +54,17 @@ BENCHMAK_MESSAGE = [
 Completion_Servers = [
     Server(
         ip=SERVER_IP,
-        port=8056,
-        model_size="8",
-        model_path=MODEL_NAME_8B,
-        gpus=[1],
-    ),
-    Server(
-        ip=SERVER_IP,
-        port=8064,
-        model_size="8",
-        model_path=MODEL_NAME_8B,
-        gpus=[2],
-    ),
-    Server(
-        ip=SERVER_IP,
-        port=8072,
-        model_size="8",
-        model_path=MODEL_NAME_8B,
-        gpus=[3],
-    ),
-    Server(
-        ip=SERVER_IP,
         port=8080,
         model_size="8",
         model_path=MODEL_NAME_8B,
-        gpus=[4],
+        gpus=[0],
+    ),
+    Server(
+        ip=SERVER_IP,
+        port=8400,
+        model_size="70",
+        model_path=MODEL_NAME_70B,
+        gpus=[1, 2, 3, 4],
     ),
     Server(
         ip=SERVER_IP,
@@ -93,21 +80,6 @@ Completion_Servers = [
         model_path=MODEL_NAME_8B,
         gpus=[6],
     ),
-    Server(
-        ip=SERVER_IP,
-        port=8104,
-        model_size="8",
-        model_path=MODEL_NAME_8B,
-        gpus=[7],
-    ),
-    #! 以下是 70B model 的 config，请不要同时开启
-    #     Server(
-    #     ip=SERVER_IP,
-    #     port=8400,
-    #     model_size="70",
-    #     model_path=MODEL_NAME_70B,
-    #     gpus=[0, 1, 2, 3],
-    # ),
 ]
 
 Embedding_Servers = [
@@ -116,7 +88,7 @@ Embedding_Servers = [
         port=7777,
         model_size="7",
         model_path=EMBEDDING_7B,
-        gpus=[0],
+        gpus=[7],
     ),
 ]
 
@@ -320,6 +292,10 @@ def get_running_server_sizes(SERVERS=Completion_Servers + Embedding_Servers):
 if __name__ == "__main__":
     server, min_latency = get_fastest_server(
         initial_latency=10, model_size="8", test_embedding_servers=False
+    )
+    print(server)
+    server, min_latency = get_fastest_server(
+        initial_latency=10, model_size="70", test_embedding_servers=False
     )
     print(server)
     server, min_latency = get_fastest_server(
