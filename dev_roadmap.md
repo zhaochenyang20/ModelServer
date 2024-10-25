@@ -7,9 +7,10 @@ Manager 向下通过 router 实现多个 DP engine 的 load balance，向上通�
 ## Engine Controller
 
 提供 UI 让用户编写 engine 的配置文件：
-    - 模型名称/路径
-    - 模型类型（completion/embedding）
-    - 模型部署参数
+
+- 模型名称/路径
+- 模型类型（completion/embedding）
+- 模型部署参数
 
 完成配置后，点击 launch 按钮，Manager 会根据配置文件启动所有 engine。
 
