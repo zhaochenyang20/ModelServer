@@ -1,6 +1,18 @@
 """
-client_configs.py
+配置 server 相关参数
+port % model_size == 0
 """
+
+#! 03 服务器跑若干多个 8b 模型，进行轮询
+
+SERVER_IP_UCLA_04 = "131.179.88.84"
+SERVER_IP_IU = "127.0.0.1"
+MODEL_NAME_70B = "70bins"
+MODEL_NAME_8B = "meta-llama/Llama-3.1-8B-Instruct"
+EMBEDDING_7B = "Alibaba-NLP/gte-Qwen2-7B-instruct"
+# EMBEDDING_7B = "e5_7b"
+EMBEDDING_2B = "2embed"
+INF = 100
 
 from collections import namedtuple
 import openai
@@ -8,14 +20,8 @@ from typing import List, Optional
 from IPython import embed
 import time
 import multiprocessing
+import math
 from typing import List, Optional
-
-SERVER_IP = "131.179.88.84"
-MODEL_NAME_8B = "meta-llama/Llama-3.1-8B-Instruct"
-MODEL_NAME_70B = "meta-llama/Llama-3.1-70B-Instruct"
-EMBEDDING_7B = "Alibaba-NLP/gte-Qwen2-7B-instruct"
-EMBEDDING_2B = "Alibaba-NLP/gte-Qwen2-2B-instruct"
-INF = 100
 
 Server = namedtuple("Server", ["ip", "port", "model_size", "model_path", "gpus"])
 BENCHMAK_MESSAGE = [
@@ -52,43 +58,66 @@ BENCHMAK_MESSAGE = [
 
 
 Completion_Servers = [
+         Server(
+         ip=SERVER_IP_UCLA_04,
+         port=8048,
+         model_size="8",
+         model_path=MODEL_NAME_8B,
+         gpus=[1],
+     ),
+     Server(
+         ip=SERVER_IP_UCLA_04,
+         port=8064,
+         model_size="8",
+         model_path=MODEL_NAME_8B,
+         gpus=[2],
+     ),
+     Server(
+         ip=SERVER_IP_UCLA_04,
+         port=8072,
+         model_size="8",
+         model_path=MODEL_NAME_8B,
+         gpus=[3],
+     ),
     Server(
-        ip=SERVER_IP,
+        ip=SERVER_IP_UCLA_04,
         port=8080,
         model_size="8",
         model_path=MODEL_NAME_8B,
-        gpus=[0],
+        gpus=[4],
     ),
     Server(
-        ip=SERVER_IP,
-        port=8400,
-        model_size="70",
-        model_path=MODEL_NAME_70B,
-        gpus=[1, 2, 3, 4],
-    ),
-    Server(
-        ip=SERVER_IP,
+        ip=SERVER_IP_UCLA_04,
         port=8088,
         model_size="8",
         model_path=MODEL_NAME_8B,
         gpus=[5],
     ),
     Server(
-        ip=SERVER_IP,
+        ip=SERVER_IP_UCLA_04,
         port=8096,
         model_size="8",
         model_path=MODEL_NAME_8B,
         gpus=[6],
     ),
+    Server(
+        ip=SERVER_IP_UCLA_04,
+        port=8104,
+        model_size="8",
+        model_path=MODEL_NAME_8B,
+        gpus=[7],
+    ),
 ]
+
+#! IU 服务器上配置 8b 模型，被统一映射到 04 local host 的 8464 端口
 
 Embedding_Servers = [
     Server(
-        ip=SERVER_IP,
-        port=7777,
+        ip=SERVER_IP_UCLA_04,
+        port=7784,
         model_size="7",
         model_path=EMBEDDING_7B,
-        gpus=[7],
+        gpus=[0],
     ),
 ]
 
@@ -96,11 +125,13 @@ Embedding_Servers = [
 def get_fastest_server(
     initial_latency=10, model_size="8", test_embedding_servers: bool = False
 ):
+
     SERVERS = Embedding_Servers if test_embedding_servers else Completion_Servers
     min_latency = initial_latency
     fastest_server = None
 
     def test_server(server: Server):
+
         def get_completion_or_embedding(
             client,
             message: List,
@@ -108,6 +139,7 @@ def get_fastest_server(
             max_tokens: int = 256,
             model_name: Optional[str] = None,
         ) -> str:
+
             def target(queue):
                 try:
                     if not test_embedding_servers:
@@ -123,7 +155,7 @@ def get_fastest_server(
                         embedding = client.embeddings.create(
                             input=message[0]["content"], model=model_name
                         )
-                        queue.put(embedding)
+                        queue.put(str(embedding.data[0].embedding[:10]))
 
                 except Exception as e:
                     queue.put(e)
@@ -148,10 +180,11 @@ def get_fastest_server(
                     raise result
                 latency = time.time() - start_time
                 print(f"Connection Time: {latency:.3f} s")
+                print(result)
                 if not test_embedding_servers:
-                    return str(result.choices[0].message.content), latency
+                    return (str(result.choices[0].message.content), latency)
                 else:
-                    return (list(result.data[0].embedding), latency)
+                    return (result, latency)
 
         client = openai.OpenAI(
             base_url=(f"http://{server.ip}:{server.port}/v1"),
@@ -166,12 +199,8 @@ def get_fastest_server(
                 256,
                 server.model_path,
             )
-            print(
-                f"Get response: {response}"
-                if not test_embedding_servers
-                else f"Get embedding: {response[:10]}"
-            )
-            if response is not None and len(response) > 0:
+            print(f"Get response: {response}" if not test_embedding_servers else "")
+            if response:
                 print(
                     f"""
 ============================================================
@@ -233,14 +262,12 @@ def get_all_latency(test_embedding_servers: bool = False):
                     messages=BENCHMAK_MESSAGE,
                     max_tokens=256,
                     temperature=0.9,
-                    stop=["<|eot_id|>", "\nObservation", "Observation"],
                 )
                 response = str(completion.choices[0].message.content)
             else:
                 embedding = client.embeddings.create(
                     input=BENCHMAK_MESSAGE[0]["content"], model=server.model_path
                 )
-                client.embeddings.create(input="how are you", model=server.model_path)
                 response = str(embedding.data[0].embedding[:10])
             duration = time.time() - start_time
             print(
@@ -290,17 +317,7 @@ def get_running_server_sizes(SERVERS=Completion_Servers + Embedding_Servers):
 
 
 if __name__ == "__main__":
-    server, min_latency = get_fastest_server(
-        initial_latency=10, model_size="8", test_embedding_servers=False
-    )
-    print(server)
-    server, min_latency = get_fastest_server(
-        initial_latency=10, model_size="70", test_embedding_servers=False
-    )
-    print(server)
-    server, min_latency = get_fastest_server(
-        initial_latency=10, model_size="7", test_embedding_servers=True
-    )
-    print(server)
+    server, min_latency = get_fastest_server(initial_latency=10, model_size="7", test_embedding_servers=True)
+    server, min_latency = get_fastest_server(initial_latency=10, model_size="8", test_embedding_servers=False)
     get_all_latency(test_embedding_servers=True)
     get_all_latency(test_embedding_servers=False)
